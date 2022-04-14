@@ -2,3 +2,7 @@
 	path = gqcnn
 	url = git@github.com:mjd3/gqcnn-ros.git
 	branch = ros2
+[submodule "vslam/orb_slam_2_ros"]
+	path = vslam/orb_slam_2_ros
+	url = https://github.com/SimeonOA/orb_slam_2_ros.git
+	branch = fogros2
