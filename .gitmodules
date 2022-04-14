@@ -1,0 +1,4 @@
+[submodule "gqcnn"]
+	path = gqcnn
+	url = git@github.com:mjd3/gqcnn-ros.git
+	branch = ros2
