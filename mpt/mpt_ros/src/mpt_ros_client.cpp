@@ -88,6 +88,13 @@ static void motionPlanCallback(const std::shared_ptr<rclcpp::Node> &node, const 
     RCLCPP_INFO(node->get_logger(), "Elapsed time: %lf", std::chrono::duration<double>(elapsed).count());
 }
 
+
+void publish() {
+
+
+}
+
+
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
 
@@ -125,8 +132,9 @@ int main(int argc, char *argv[]) {
     //     RCLCPP_INFO(node->get_logger(), "Stuck in the loop");
     //     loop_rate.sleep();
     // }
-
+start:
     if (rclcpp::ok()) {
+        gotPlan_ = false;
         RCLCPP_INFO(node->get_logger(), "Sending env");
         mpt_ros::msg::MotionPlanRequest req;
         Eigen::Matrix<double, 3, 2> bounds;
@@ -235,27 +243,14 @@ int main(int argc, char *argv[]) {
         // sendMatrix(planPub, startAndGoal);
         motionPlanRequestPub->publish(req);
 
-        // int count = 0;
-        // while (rclcpp::ok()) {
-        //     std_msgs::msg::String msg;
-
-        //     std::stringstream str;
-        //     str << "Hello! " << count;
-        //     msg.data = str.str();
-
-        //     RCLCPP_INFO(node->get_logger(), "%s", msg.data.c_str());
-
-        //     chatter_pub.publish(msg);
-
-        //     rclcpp::spin(node);
-
-        //     loop_rate.sleep();
-        //     ++count;
-        // }
-        while (rclcpp::ok() && !gotPlan_) {
-            rclcpp::spin(node);
+        while (rclcpp::ok()) {
+            rclcpp::spin_some(node);
+            if (gotPlan_)
+                break;
             loop_rate.sleep();
         }
+        RCLCPP_INFO(node->get_logger(), "1");
+        goto start;
     }
 
     return 0;
