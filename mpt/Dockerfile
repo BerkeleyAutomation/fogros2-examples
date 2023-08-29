@@ -80,4 +80,10 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
 
 RUN cp -r /usr/local/lib/* ./install/mpt_ros/lib/
 
+# setup entrypoint
+ENV ROS_DISTRO=${ROS_DISTRO}
+COPY ./ros_entrypoint.sh /
+RUN chmod +x /ros_entrypoint.sh
+
+ENTRYPOINT [ "/ros_entrypoint.sh" ]
 CMD ["bash"]
