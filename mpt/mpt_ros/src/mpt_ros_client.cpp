@@ -29,8 +29,7 @@ std::vector<unsigned char> loadFile(const std::string& fileName) {
     return data;
 }
 
-template <typename T>
-std_msgs::msg::UInt8MultiArray sendMesh(const shared_ptr<rclcpp::Publisher<T>> &pub, const std::string& file) {
+std_msgs::msg::UInt8MultiArray sendMesh(const std::string& file) {
     std_msgs::msg::UInt8MultiArray msg;
     msg.data = loadFile(file);
     msg.layout.data_offset = 0;
@@ -59,83 +58,68 @@ void sendMatrix(const shared_ptr<rclcpp::Publisher<T>> &pub, const Eigen::Matrix
     pub->publish(msg);
 }
 
-static bool gotPlan_{false};
-auto startTime{Clock::now()};
-static void motionPlanCallback(const std::shared_ptr<rclcpp::Node> &node, const std_msgs::msg::Float64MultiArray &msg) {
-    RCLCPP_INFO(node->get_logger(), "Got Motion Plan");
-    if (msg.layout.dim.size() != 2) {
-        RCLCPP_INFO(node->get_logger(), "Motion planning failed");
-    } else {
-        RCLCPP_INFO(node->get_logger(), "Motion plan has %u waypoints, %zu bytes",
-                 msg.layout.dim[0].size,
-                 msg.data.size() * sizeof(msg.data[0]));
 
-        unsigned int rows = msg.layout.dim[0].size;
-        unsigned int cols = msg.layout.dim[1].size;
 
-        Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m(rows, cols);
 
-        for (unsigned i=0 ; i<rows ; ++i)
-            for (unsigned j=0 ; j<cols ; ++j)
-                m(i,j) = msg.data[i * msg.layout.dim[0].stride + j];
+class MinimalPublisher : public rclcpp::Node
+{
+  public:
+    MinimalPublisher()
+    : Node("minimal_publisher"), count_(0)
+    {
 
-        std::ostringstream str;
-        str << m;
-        RCLCPP_INFO(node->get_logger(), "Waypoints: \n%s", str.str().c_str());
+    auto envMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
+    auto robotMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
+    auto motionPlanRequestPub = this->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
+    // auto boundsPub = this->create_publisher<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000);
+    // auto planPub =this->create_publisher<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000);
+    // auto motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+    //   "motion_plan", 1000,
+    //   [this] (const std_msgs::msg::Float64MultiArray msg){
+    //       this->motionPlanCallback(msg);
+    //     });
+    auto motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+        "motion_plan", 1000,
+        std::bind(&MinimalPublisher::motionPlanCallback, this, _1));
+      timer_ = this->create_wall_timer(
+      500ms, std::bind(&MinimalPublisher::publish_callback, this));
+        RCLCPP_INFO(this->get_logger(), "Initing");
+        RCLCPP_INFO(this->get_logger(), "Entering loop");
     }
-    gotPlan_ = true;
-    auto elapsed = Clock::now() - startTime;
-    RCLCPP_INFO(node->get_logger(), "Elapsed time: %lf", std::chrono::duration<double>(elapsed).count());
-}
+
+  private:
+    
+    void motionPlanCallback(const std_msgs::msg::Float64MultiArray &msg) {
+        RCLCPP_INFO(this->get_logger(), "Got Motion Plan");
+        if (msg.layout.dim.size() != 2) {
+            RCLCPP_INFO(this->get_logger(), "Motion planning failed");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Motion plan has %u waypoints, %zu bytes",
+                    msg.layout.dim[0].size,
+                    msg.data.size() * sizeof(msg.data[0]));
+
+            unsigned int rows = msg.layout.dim[0].size;
+            unsigned int cols = msg.layout.dim[1].size;
+
+            Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> m(rows, cols);
+
+            for (unsigned i=0 ; i<rows ; ++i)
+                for (unsigned j=0 ; j<cols ; ++j)
+                    m(i,j) = msg.data[i * msg.layout.dim[0].stride + j];
+
+            std::ostringstream str;
+            str << m;
+            RCLCPP_INFO(this->get_logger(), "Waypoints: \n%s", str.str().c_str());
+        }
+        gotPlan_ = true;
+        auto elapsed = Clock::now() - startTime;
+        RCLCPP_INFO(this->get_logger(), "Elapsed time: %lf", std::chrono::duration<double>(elapsed).count());
+    }
 
 
-void publish() {
-
-
-}
-
-
-int main(int argc, char *argv[]) {
-    rclcpp::init(argc, argv);
-
-    auto node = rclcpp::Node::make_shared("mpt_client");
-
-    // std::string envFile;
-    // std::string robotFile;
-
-    // n.getParam("env", envFile);
-    // n.getParam("robot", robotFile);
-    RCLCPP_INFO(node->get_logger(), "Initing");
-
-    auto envMeshPub = node->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
-    auto robotMeshPub = node->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
-    auto motionPlanRequestPub = node->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
-    // auto boundsPub = node->create_publisher<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000);
-    // auto planPub =node->create_publisher<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000);
-    auto motionPlanSub = node->create_subscription<std_msgs::msg::Float64MultiArray>(
-      "motion_plan", 1000,
-      [node] (const std_msgs::msg::Float64MultiArray msg){
-          motionPlanCallback(node, msg);
-        });
-    //   std::bind(&motionPlanCallback, node , std::placeholders::_1));
-    rclcpp::Rate loop_rate(10);
-    RCLCPP_INFO(node->get_logger(), "Entering loop");
-
-    // while (rclcpp::ok()) {
-    //     // rclcpp::spin(node); //Fix hang problem
-    //     if (node->count_subscribers("environment_mesh") > 0 &&
-    //         node->count_subscribers("robot_mesh") > 0 &&
-    //         // node->count_subscribers("motion_plan_request") > 0 &&
-    //         // node->count_subscribers("environment_bounds") > 0 &&
-    //         node->count_subscribers("plan_start_to_goal") > 0)
-    //         break;
-    //     RCLCPP_INFO(node->get_logger(), "Stuck in the loop");
-    //     loop_rate.sleep();
-    // }
-start:
-    if (rclcpp::ok()) {
+    void publish_callback() {
         gotPlan_ = false;
-        RCLCPP_INFO(node->get_logger(), "Sending env");
+        RCLCPP_INFO(this->get_logger(), "Sending env");
         mpt_ros::msg::MotionPlanRequest req;
         Eigen::Matrix<double, 3, 2> bounds;
         Eigen::Matrix<double, 7, 2> startAndGoal;
@@ -149,11 +133,11 @@ start:
         req.goal_names = req.start_names;
         req.bounds_names = std::vector<std::string>(
             {{ "tx", "ty", "tz" }});
-
+RCLCPP_INFO(this->get_logger(), "Sending env");
         std::string scenario = "cubicles"; //Apartment, Home, cubicles, Twistycool, ;
         if (scenario == "Apartment") {
-            auto env = sendMesh(envMeshPub, "Apartment_env.dae");
-            auto robot = sendMesh(robotMeshPub, "Apartment_robot.dae");
+            auto env = sendMesh("Apartment_env.dae");
+            auto robot = sendMesh("Apartment_robot.dae");
             envMeshPub->publish(env);
             robotMeshPub->publish(robot);
             bounds <<
@@ -172,8 +156,8 @@ start:
             // over 10 min on 1 core.
             req.min_solution_cost = 650;
         } else if (scenario == "Home") {
-            auto env = sendMesh(envMeshPub, "Home_env.dae");
-            auto robot = sendMesh(robotMeshPub, "Home_robot.dae");
+            auto env = sendMesh( "Home_env.dae");
+            auto robot = sendMesh( "Home_robot.dae");
             envMeshPub->publish(env);
             robotMeshPub->publish(robot);
             bounds <<
@@ -190,10 +174,12 @@ start:
                 0, 0;
             req.min_solution_cost = 2500;
         } else if (scenario == "cubicles") {
-            auto env = sendMesh(envMeshPub, "cubicles_env.dae");
-            auto robot = sendMesh(robotMeshPub, "cubicles_robot.dae");
+            auto env = sendMesh("cubicles_env.dae");
+            auto robot = sendMesh("cubicles_robot.dae");
             envMeshPub->publish(env);
+                        RCLCPP_INFO(this->get_logger(), "Sending en3v");
             robotMeshPub->publish(robot);
+                        RCLCPP_INFO(this->get_logger(), "Sending en3v");
             bounds <<
           -508.88, 319.62,
           -230.13, 531.87,
@@ -210,8 +196,8 @@ start:
         } else if (scenario == "Twistycool") {
             // Ug, this seems to have a solution that is just to
             // interpolate from start to goal.
-            auto env = sendMesh(envMeshPub, "Twistycool_env.dae");
-            auto robot = sendMesh(robotMeshPub, "Twistycool_robot.dae");
+            auto env = sendMesh( "Twistycool_env.dae");
+            auto robot = sendMesh( "Twistycool_robot.dae");
             envMeshPub->publish(env);
             robotMeshPub->publish(robot);
             bounds <<
@@ -242,16 +228,61 @@ start:
         // sendMatrix(boundsPub, bounds);
         // sendMatrix(planPub, startAndGoal);
         motionPlanRequestPub->publish(req);
-
-        while (rclcpp::ok()) {
-            rclcpp::spin_some(node);
-            if (gotPlan_)
-                break;
-            loop_rate.sleep();
-        }
-        RCLCPP_INFO(node->get_logger(), "1");
-        goto start;
     }
 
+    rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr envMeshPub;
+    rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr robotMeshPub;
+    rclcpp::Publisher<mpt_ros::msg::MotionPlanRequest>::SharedPtr motionPlanRequestPub;
+    rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr motionPlanSub;
+    size_t count_;
+    bool gotPlan_{false};
+    // auto startTime{Clock::now()};
+    Clock::time_point startTime{Clock::now()};
+};
+
+
+
+
+
+int main(int argc, char *argv[]) {
+    rclcpp::init(argc, argv);
+
+    // auto this = rclcpp::Node::make_shared("mpt_client");
+
+    // std::string envFile;
+    // std::string robotFile;
+
+    // n.getParam("env", envFile);
+    // n.getParam("robot", robotFile);
+
+    // publish(this, envMeshPub, robotMeshPub, motionPlanRequestPub, motionPlanSub);
+
+    // while (rclcpp::ok()) {
+    //     // rclcpp::spin(this); //Fix hang problem
+    //     if (this->count_subscribers("environment_mesh") > 0 &&
+    //         this->count_subscribers("robot_mesh") > 0 &&
+    //         // this->count_subscribers("motion_plan_request") > 0 &&
+    //         // this->count_subscribers("environment_bounds") > 0 &&
+    //         this->count_subscribers("plan_start_to_goal") > 0)
+    //         break;
+    //     RCLCPP_INFO(this->get_logger(), "Stuck in the loop");
+    //     loop_rate.sleep();
+    // }
+    // if (rclcpp::ok()) {
+
+    //     while (rclcpp::ok()) {
+    //         rclcpp::spin(this);
+    //         if (gotPlan_)
+    //             break;
+    //         loop_rate.sleep();
+    //     }
+    //     RCLCPP_INFO(this->get_logger(), "1");
+    // }
+
+    // rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<MinimalPublisher>());
+    rclcpp::shutdown();
     return 0;
 }
