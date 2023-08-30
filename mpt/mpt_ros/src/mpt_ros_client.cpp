@@ -68,9 +68,9 @@ class MinimalPublisher : public rclcpp::Node
     : Node("minimal_publisher"), count_(0)
     {
 
-    auto envMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
-    auto robotMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
-    auto motionPlanRequestPub = this->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
+     this->envMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
+     this->robotMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
+     this->motionPlanRequestPub = this->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
     // auto boundsPub = this->create_publisher<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000);
     // auto planPub =this->create_publisher<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000);
     // auto motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
@@ -78,11 +78,12 @@ class MinimalPublisher : public rclcpp::Node
     //   [this] (const std_msgs::msg::Float64MultiArray msg){
     //       this->motionPlanCallback(msg);
     //     });
-    auto motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
+    this-> motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
         "motion_plan", 1000,
         std::bind(&MinimalPublisher::motionPlanCallback, this, _1));
-      timer_ = this->create_wall_timer(
-      500ms, std::bind(&MinimalPublisher::publish_callback, this));
+    
+    timer_ = this->create_wall_timer(
+      60s, std::bind(&MinimalPublisher::publish_callback, this));
         RCLCPP_INFO(this->get_logger(), "Initing");
         RCLCPP_INFO(this->get_logger(), "Entering loop");
     }
@@ -133,7 +134,6 @@ class MinimalPublisher : public rclcpp::Node
         req.goal_names = req.start_names;
         req.bounds_names = std::vector<std::string>(
             {{ "tx", "ty", "tz" }});
-RCLCPP_INFO(this->get_logger(), "Sending env");
         std::string scenario = "cubicles"; //Apartment, Home, cubicles, Twistycool, ;
         if (scenario == "Apartment") {
             auto env = sendMesh("Apartment_env.dae");
@@ -176,10 +176,8 @@ RCLCPP_INFO(this->get_logger(), "Sending env");
         } else if (scenario == "cubicles") {
             auto env = sendMesh("cubicles_env.dae");
             auto robot = sendMesh("cubicles_robot.dae");
-            envMeshPub->publish(env);
-                        RCLCPP_INFO(this->get_logger(), "Sending en3v");
-            robotMeshPub->publish(robot);
-                        RCLCPP_INFO(this->get_logger(), "Sending en3v");
+            this->envMeshPub->publish(env);
+            this->robotMeshPub->publish(robot);
             bounds <<
           -508.88, 319.62,
           -230.13, 531.87,
