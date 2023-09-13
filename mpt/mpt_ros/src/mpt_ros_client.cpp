@@ -84,7 +84,7 @@ class MinimalPublisher : public rclcpp::Node
         std::bind(&MinimalPublisher::motionPlanCallback, this, _1));
     
     timer_ = this->create_wall_timer(
-      15s, std::bind(&MinimalPublisher::publish_callback, this));
+      16s, std::bind(&MinimalPublisher::publish_callback, this));
         RCLCPP_INFO(this->get_logger(), "Initing");
         RCLCPP_INFO(this->get_logger(), "Entering loop");
     }

@@ -499,9 +499,11 @@ namespace mpt_ros {
         }
 
         void optRunPlanner() {
+            MPT_LOG(INFO) << "optRunPlanner ";
             if (motionPlanRequest_.environment_ && motionPlanRequest_.robot_ &&
                 planHasStartAndGoal_ && planHasBounds_)
             {
+                MPT_LOG(INFO) << "optRunPlanner 2";
                 planHasStartAndGoal_ = false;
 
                 std::unique_lock<std::mutex> lock(runStateMutex_);
@@ -511,7 +513,9 @@ namespace mpt_ros {
 
                 // only notify if there wasn't a plan already.
                 if (notify)
+                    MPT_LOG(INFO) << "optRunPlanner 3";
                     nextRequestReady_.notify_one();
+                    MPT_LOG(INFO) << "optRunPlanner 4";
             }
         }
         
