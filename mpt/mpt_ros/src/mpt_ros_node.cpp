@@ -304,6 +304,7 @@ namespace mpt_ros {
         rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr planStartToGoalSub_;
         rclcpp::Subscription<mpt_ros::msg::MotionPlanRequest>::SharedPtr motionPlanRequestSub_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr motionPlanPub_;
+        rclcpp::Publisher<std_msgs::msg::Float64>::SharedPtr objectiveCostPub_;
 
         struct MotionPlanRequest {
             std::shared_ptr<Mesh> environment_;
@@ -382,10 +383,13 @@ namespace mpt_ros {
             std_msgs::msg::Float64MultiArray msg;
             msg.layout.data_offset = 0;
             msg.layout.dim.emplace_back();
+
+            std_msgs::msg::Float64 objectiveCostMsg;
             if (!planner.solved()) {
                 msg.layout.dim[0].label = "failed";
                 msg.layout.dim[0].size = 0;
                 msg.layout.dim[0].stride = 7;
+                objectiveCostMsg.data = -1;
             } else {
                 std::vector<State> path = planner.solution();
                 // auto it = path.begin();
@@ -408,8 +412,9 @@ namespace mpt_ros {
                     for (int j=0 ; j<3 ; ++j)
                         msg.data.push_back(std::get<Eigen::Matrix<S, 3, 1>>(path[i])[j]);
                 }
+                objectiveCostMsg.data = planner.solutionCost();
             }
-
+            objectiveCostPub_->publish(objectiveCostMsg);
             motionPlanPub_->publish(msg);
         }
 
@@ -581,7 +586,8 @@ namespace mpt_ros {
             , planStartToGoalSub_(this->create_subscription<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000, std::bind(&MPTNode::planStartToGoalCallback, this, _1)))
             , boundsSub_(this->create_subscription<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000, std::bind(&MPTNode::environmentBoundsCallback, this, _1)))
             , motionPlanRequestSub_(this->create_subscription<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000, std::bind(&MPTNode::motionPlanRequestCallback, this, _1)))
-            , motionPlanPub_(this->create_publisher<std_msgs::msg::Float64MultiArray>("motion_plan", 1000))
+            , motionPlanPub_(this->create_publisher<std_msgs::msg::Float64MultiArray>("motion_plan", 1000)),
+            , objectiveCostPub_(this->create_publisher<std_msgs::msg::Float64>("objective_cost", 1000)),
             , planThread_(&MPTNode::plannerLoop, this),
             Node("mpt_node")
         {
