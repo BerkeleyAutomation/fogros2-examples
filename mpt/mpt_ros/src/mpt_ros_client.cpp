@@ -125,7 +125,7 @@ class MinimalPublisher : public rclcpp::Node
         Eigen::Matrix<double, 3, 2> bounds;
         Eigen::Matrix<double, 7, 2> startAndGoal;
 
-        req.max_planning_time = 600.0;
+        req.max_planning_time = 30.0;
         req.min_planning_time = 0;
         req.min_solution_cost = std::numeric_limits<double>::infinity();
 
