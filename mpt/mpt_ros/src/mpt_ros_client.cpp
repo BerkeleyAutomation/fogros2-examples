@@ -67,10 +67,11 @@ class MinimalPublisher : public rclcpp::Node
     MinimalPublisher()
     : Node("minimal_publisher"), count_(0)
     {
-
-     this->envMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
-     this->robotMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
-     this->motionPlanRequestPub = this->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
+    // ros::param::param<std::string>("scenario", default_param, "Apartment");
+    this->declare_parameter("scenario", rclcpp::PARAMETER_STRING);
+    this->envMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("environment_mesh", 1000);
+    this->robotMeshPub = this->create_publisher<std_msgs::msg::UInt8MultiArray>("robot_mesh", 1000);
+    this->motionPlanRequestPub = this->create_publisher<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000);
     // auto boundsPub = this->create_publisher<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000);
     // auto planPub =this->create_publisher<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000);
     // auto motionPlanSub = this->create_subscription<std_msgs::msg::Float64MultiArray>(
@@ -83,7 +84,7 @@ class MinimalPublisher : public rclcpp::Node
         std::bind(&MinimalPublisher::motionPlanCallback, this, _1));
     
     timer_ = this->create_wall_timer(
-      60s, std::bind(&MinimalPublisher::publish_callback, this));
+      15s, std::bind(&MinimalPublisher::publish_callback, this));
         RCLCPP_INFO(this->get_logger(), "Initing");
         RCLCPP_INFO(this->get_logger(), "Entering loop");
     }
@@ -125,7 +126,7 @@ class MinimalPublisher : public rclcpp::Node
         Eigen::Matrix<double, 3, 2> bounds;
         Eigen::Matrix<double, 7, 2> startAndGoal;
 
-        req.max_planning_time = 30.0;
+        req.max_planning_time = 15.0;
         req.min_planning_time = 0;
         req.min_solution_cost = std::numeric_limits<double>::infinity();
 
@@ -135,6 +136,8 @@ class MinimalPublisher : public rclcpp::Node
         req.bounds_names = std::vector<std::string>(
             {{ "tx", "ty", "tz" }});
         std::string scenario = "cubicles"; //Apartment, Home, cubicles, Twistycool, ;
+        rclcpp::Parameter str_param = this->get_parameter("scenario");
+        scenario = str_param.as_string();
         if (scenario == "Apartment") {
             auto env = sendMesh("Apartment_env.dae");
             auto robot = sendMesh("Apartment_robot.dae");

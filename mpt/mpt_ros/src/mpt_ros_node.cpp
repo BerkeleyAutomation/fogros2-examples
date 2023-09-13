@@ -2,6 +2,7 @@
 #include <mutex>
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/string.hpp"
+#include "std_msgs/msg/float64.hpp"
 #include <sstream>
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
@@ -371,6 +372,7 @@ namespace mpt_ros {
                     if (planner.solved() && planner.solutionCost() <= minSolutionCost)
                         return true;
                     if (elapsedTime > maxPlanningTime)
+                        // RCLCPP_INFO(this->get_logger(), "max planning time triggered");
                         return true;
 
                     return false;
@@ -586,10 +588,10 @@ namespace mpt_ros {
             , planStartToGoalSub_(this->create_subscription<std_msgs::msg::Float64MultiArray>("plan_start_to_goal", 1000, std::bind(&MPTNode::planStartToGoalCallback, this, _1)))
             , boundsSub_(this->create_subscription<std_msgs::msg::Float64MultiArray>("environment_bounds", 1000, std::bind(&MPTNode::environmentBoundsCallback, this, _1)))
             , motionPlanRequestSub_(this->create_subscription<mpt_ros::msg::MotionPlanRequest>("motion_plan_request", 1000, std::bind(&MPTNode::motionPlanRequestCallback, this, _1)))
-            , motionPlanPub_(this->create_publisher<std_msgs::msg::Float64MultiArray>("motion_plan", 1000)),
-            , objectiveCostPub_(this->create_publisher<std_msgs::msg::Float64>("objective_cost", 1000)),
-            , planThread_(&MPTNode::plannerLoop, this),
-            Node("mpt_node")
+            , motionPlanPub_(this->create_publisher<std_msgs::msg::Float64MultiArray>("motion_plan", 1000))
+            , objectiveCostPub_(this->create_publisher<std_msgs::msg::Float64>("objective_cost", 1000))
+            , planThread_(&MPTNode::plannerLoop, this)
+            , Node("mpt_node")
         {
         }
 
